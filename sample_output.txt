@@ -1,0 +1,126 @@
+==============================================================
+  Secure Communication Between Alice and Bob
+  Symmetric encryption with AES-256-GCM
+==============================================================
+  The message is protected by one shared 256-bit key.
+  Shared key file: secret.key
+  Start with option 1 if no key exists yet.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 1
+
+[AES-256-GCM] Generating a new 256-bit key ...
+  [OK] Key generated with os.urandom(32) (CSPRNG).
+  Key length                  : 256 bits
+  Key fingerprint             : 4da610d34cbab1c0
+  Saved to                    : secret.key
+  Share this key with Bob only through a secure channel (in person, a password manager, or similar).
+  Never send it together with the ciphertext.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 2
+
+Alice's plaintext message: Meet me at the library at 5 PM.
+
+--- Alice: encryption result ---
+  Original plaintext          : Meet me at the library at 5 PM.
+  Algorithm                   : AES-256-GCM
+  Nonce (96-bit, Base64)      :
+      tF0138Mg3q/9thdf
+  Ciphertext (Base64)         :
+      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+  Authentication tag (Base64) :
+      WpBJX77xh+Nnb7ayLjlAsg==
+  Ciphertext length           : 31 bytes + 16-byte tag
+
+  Note: every encryption uses a fresh 96-bit nonce, so encrypting
+  the same message twice produces completely different output.
+
+  Simulating transmission to Bob over an insecure channel ...
+  Sent: nonce + ciphertext. The key stays with Alice.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 3
+
+Bob received a nonce and a ciphertext (both Base64).
+Press Enter twice to reuse the message Alice just encrypted.
+Nonce (Base64): 
+Ciphertext (Base64): 
+
+--- Bob: decryption result ---
+  Algorithm                   : AES-256-GCM
+  [PASS] Authentication tag verified with the shared key.
+  [PASS] Decryption succeeded.
+  Decrypted plaintext         : Meet me at the library at 5 PM.
+  [PASS] Recovered plaintext matches Alice's original message.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 4
+
+--- Security test: incorrect key ---
+  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
+  Alice's key                 : secret.key (fingerprint 4da610d34cbab1c0)
+  Bob's wrong key             : random key (fingerprint 80deb7dc94f990f7)
+  Bob tries to decrypt with a key that is NOT Alice's key ...
+  [PASS] Decryption failed with an authentication error (InvalidTag).
+  [PASS] No plaintext was revealed to Bob.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 5
+
+--- Security test: ciphertext tampering ---
+  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
+  An attacker flips one single bit of the ciphertext in transit.
+  Original ciphertext (Base64):
+      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+  Tampered ciphertext (Base64):
+      8JIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+  [PASS] Decryption failed with an authentication error (InvalidTag).
+  [PASS] The tampering was detected and no plaintext was released.
+
+--------------------------------------------------------------
+  1. Generate Encryption Key
+  2. Encrypt Message (Alice)
+  3. Decrypt Message (Bob)
+  4. Test Incorrect Key
+  5. Test Ciphertext Tampering
+  6. Exit
+--------------------------------------------------------------
+Choose an option [1-6]: 6
+
+Goodbye. Keep the shared key secret.
