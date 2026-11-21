@@ -1,0 +1,306 @@
+==============================================================================
+ HOW TO RUN AND DEMO THIS PROGRAM
+ Secure Communication Between Alice and Bob Using AES-256-GCM
+==============================================================================
+
+This file is a step-by-step demo script. Follow the numbered steps in a terminal
+and you will reproduce the output shown below. Every value that is Base64 (key
+fingerprint, nonce, ciphertext, tag) is RANDOM on each run, so yours will look
+different. The wording of the messages will be identical.
+
+
+------------------------------------------------------------------------------
+ PART 1 - ONE-TIME SETUP (do this before the demo)
+------------------------------------------------------------------------------
+
+STEP 0. Open a terminal in the project folder.
+
+    Windows PowerShell:
+        cd "C:\Users\GAURAV\OneDrive\Desktop\Sem5\Cryptography\pbl"
+
+    macOS / Linux:
+        cd path/to/pbl
+
+STEP 1. Check Python is available (3.10 or newer is required).
+
+        python --version
+
+    Example output:
+        Python 3.14.6
+
+    On macOS/Linux the command may be `python3 --version`.
+
+STEP 2. (Optional but recommended) create a virtual environment.
+
+        python -m venv .venv
+
+    Activate it.
+
+    Windows PowerShell:
+        .\.venv\Scripts\Activate.ps1
+
+    macOS / Linux:
+        source .venv/bin/activate
+
+STEP 3. Install the only dependency (the `cryptography` library).
+
+        pip install -r requirements.txt
+
+    Expected (first time):
+        Collecting cryptography>=42.0
+        ...
+        Successfully installed cryptography-50.0.2
+
+    If it is already installed you will see:
+        Requirement already satisfied: cryptography ...
+
+STEP 4. (Optional) Start from a clean slate so the demo always begins with a
+        brand-new key. Delete the key file if it exists.
+
+    Windows PowerShell:
+        Remove-Item -Force secret.key -ErrorAction SilentlyContinue
+
+    macOS / Linux:
+        rm -f secret.key
+
+    The program will simply say "No key file found" if you skip this; option 1
+    then creates one.
+
+
+------------------------------------------------------------------------------
+ PART 2 - START THE PROGRAM
+------------------------------------------------------------------------------
+
+STEP 5. Run the program.
+
+        python main.py
+
+    You should see the banner and the menu:
+
+        ==============================================================
+          Secure Communication Between Alice and Bob
+          Symmetric encryption with AES-256-GCM
+        ==============================================================
+          The message is protected by one shared 256-bit key.
+          Shared key file: secret.key
+          Start with option 1 if no key exists yet.
+
+        --------------------------------------------------------------
+          1. Generate Encryption Key
+          2. Encrypt Message (Alice)
+          3. Decrypt Message (Bob)
+          4. Test Incorrect Key
+          5. Test Ciphertext Tampering
+          6. Exit
+        --------------------------------------------------------------
+        Choose an option [1-6]:
+
+    The menu is printed again after every action. In the steps below it is
+    shortened to  [menu shown again]  to keep this file readable.
+
+
+------------------------------------------------------------------------------
+ PART 3 - THE DEMO, STEP BY STEP
+------------------------------------------------------------------------------
+
+STEP 6. Type 1 and press Enter  ->  create the shared key.
+
+        Choose an option [1-6]: 1
+
+        [AES-256-GCM] Generating a new 256-bit key ...
+          [OK] Key generated with os.urandom(32) (CSPRNG).
+          Key length                  : 256 bits
+          Key fingerprint             : 4da610d34cbab1c0
+          Saved to                    : secret.key
+          Share this key with Bob only through a secure channel (in person, a password manager, or similar).
+          Never send it together with the ciphertext.
+
+    What to point out:
+      - 32 bytes = 256 bits -> AES-256.
+      - os.urandom is a CSPRNG (cryptographically secure random generator).
+      - The fingerprint lets Alice and Bob confirm they hold the same key
+        without printing the key itself.
+      - The key is saved to secret.key and is NEVER sent with the message.
+
+    If secret.key already exists the program first asks:
+        secret.key already exists. Overwrite it? [y/N]:
+    Type y and Enter to overwrite, or just Enter to keep the old key.
+
+
+STEP 7. Type 2 and press Enter, then type a message  ->  Alice encrypts.
+
+        Choose an option [1-6]: 2
+
+        Alice's plaintext message: Meet me at the library at 5 PM.
+
+        --- Alice: encryption result ---
+          Original plaintext          : Meet me at the library at 5 PM.
+          Algorithm                   : AES-256-GCM
+          Nonce (96-bit, Base64)      :
+              tF0138Mg3q/9thdf
+          Ciphertext (Base64)         :
+              8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+          Authentication tag (Base64) :
+              WpBJX77xh+Nnb7ayLjlAsg==
+          Ciphertext length           : 31 bytes + 16-byte tag
+
+          Note: every encryption uses a fresh 96-bit nonce, so encrypting
+          the same message twice produces completely different output.
+
+          Simulating transmission to Bob over an insecure channel ...
+          Sent: nonce + ciphertext. The key stays with Alice.
+
+    What to point out:
+      - Original plaintext, algorithm, nonce, ciphertext and tag are all shown.
+      - 31 bytes = length of the message; the tag adds 16 more bytes.
+      - Only nonce + ciphertext travel. The key stays with Alice.
+      - Run option 2 twice with the same message to prove the nonce and
+        ciphertext change every time.
+
+    Tip: copy the Nonce and Ciphertext values somewhere if you plan to type
+    them manually in the next step. Otherwise just press Enter twice.
+
+
+STEP 8. Type 3 and press Enter, then press Enter twice  ->  Bob decrypts.
+
+        Choose an option [1-6]: 3
+
+        Bob received a nonce and a ciphertext (both Base64).
+        Press Enter twice to reuse the message Alice just encrypted.
+        Nonce (Base64):
+        Ciphertext (Base64):
+
+        --- Bob: decryption result ---
+          Algorithm                   : AES-256-GCM
+          [PASS] Authentication tag verified with the shared key.
+          [PASS] Decryption succeeded.
+          Decrypted plaintext         : Meet me at the library at 5 PM.
+          [PASS] Recovered plaintext matches Alice's original message.
+
+    What to point out:
+      - Pressing Enter twice reuses the last encrypted message, so the demo
+        flows without copying Base64 strings.
+      - Decryption returned EXACTLY the original plaintext.
+      - The tag verified, so Bob knows the message is authentic and unchanged.
+
+    (You can also paste the nonce and ciphertext as Base64 here. Bad Base64
+    gets a friendly [FAIL] message instead of a crash.)
+
+
+STEP 9. Type 4 and press Enter  ->  security test: wrong key.
+
+        Choose an option [1-6]: 4
+
+        --- Security test: incorrect key ---
+          Using the last message Alice encrypted: "Meet me at the library at 5 PM."
+          Alice's key                 : secret.key (fingerprint 4da610d34cbab1c0)
+          Bob's wrong key             : random key (fingerprint 80deb7dc94f990f7)
+          Bob tries to decrypt with a key that is NOT Alice's key ...
+          [PASS] Decryption failed with an authentication error (InvalidTag).
+          [PASS] No plaintext was revealed to Bob.
+
+    What to point out:
+      - Two different fingerprints prove the keys are different.
+      - GCM raised InvalidTag, so no plaintext was released at all.
+      - This is the correct, secure behaviour.
+
+    If you have not encrypted a message yet, the test encrypts a demo message
+    automatically: "Demo message for the security test."
+
+
+STEP 10. Type 5 and press Enter  ->  security test: tampering.
+
+        Choose an option [1-6]: 5
+
+        --- Security test: ciphertext tampering ---
+          Using the last message Alice encrypted: "Meet me at the library at 5 PM."
+          An attacker flips one single bit of the ciphertext in transit.
+          Original ciphertext (Base64):
+              8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+          Tampered ciphertext (Base64):
+              8JIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+          [PASS] Decryption failed with an authentication error (InvalidTag).
+          [PASS] The tampering was detected and no plaintext was released.
+
+    What to point out:
+      - Only ONE bit was flipped, yet the whole message is rejected.
+      - Compare the two Base64 lines: 8ZIs6M... became 8JIs6M...
+      - This is what "authenticated encryption" means: modification is detected,
+        not silently decrypted into garbage.
+
+STEP 11. Type 6 and press Enter  ->  exit.
+
+        Choose an option [1-6]: 6
+
+        Goodbye. Keep the shared key secret.
+
+
+------------------------------------------------------------------------------
+ PART 4 - OPTIONAL EXTRAS FOR THE DEMO
+------------------------------------------------------------------------------
+
+A) Show that the nonce really is fresh
+   Run option 2 twice with the same text (for example "hello"). The nonce and
+   ciphertext will be completely different both times. That is the 96-bit
+   random nonce doing its job.
+
+B) Show the invalid-input handling
+   At the menu, type 9:
+        [FAIL] '9' is not a valid option. Choose 1-6.
+   Press Enter with no input:
+        [FAIL] No option entered. Please type a number from 1 to 6.
+   Try option 2 with an empty message:
+        [FAIL] The message is empty, nothing to encrypt.
+
+C) Show the wrong-key case manually
+   Run option 1 and answer y to overwrite the key, then run option 3 with a
+   message that was encrypted under the OLD key. You will get:
+        [FAIL] Authentication failed: wrong key, or the nonce/ciphertext was modified.
+        No plaintext is released when the tag does not verify.
+
+D) Show the key file
+   Open secret.key in a text editor. It contains only Base64 text, e.g.
+        q83vXK...==
+   That is the raw 256-bit key, so treat the file as a secret. Delete it with
+        Remove-Item secret.key            (Windows PowerShell)
+        rm secret.key                     (macOS / Linux)
+   when you are done with the demo.
+
+
+------------------------------------------------------------------------------
+ PART 5 - TROUBLESHOOTING DURING THE DEMO
+------------------------------------------------------------------------------
+
+"ModuleNotFoundError: No module named 'cryptography'"
+    The dependency is missing or the virtual environment is not active.
+    Run:  pip install -r requirements.txt
+
+"[FAIL] No key file found. Use option 1 to create secret.key."
+    You skipped option 1. Generate a key first.
+
+"[FAIL] Authentication failed: wrong key, or the nonce/ciphertext was modified."
+    Expected in tests 2 and 3, and whenever the key does not match the message.
+
+"SyntaxError" on import
+    Python is older than 3.10. Install a newer Python or use a 3.10+ interpreter.
+
+Nothing happens after "Choose an option [1-6]:"
+    The program is waiting for input. Type a number and press Enter.
+
+
+------------------------------------------------------------------------------
+ CHEAT SHEET - THE WHOLE DEMO IN 6 LINES
+------------------------------------------------------------------------------
+
+    1  -> generate key
+    2  -> type a message        (Alice encrypts)
+    3  -> Enter, Enter          (Bob decrypts, gets the message back)
+    4  -> wrong key             (authentication fails)
+    5  -> tampered ciphertext   (tampering detected)
+    6  -> exit
+
+One sentence to say at the end:
+    "AES-256-GCM keeps the message secret and also proves it was not changed,
+     but only if Alice and Bob share the key securely and never reuse a nonce."
+
+==============================================================================
