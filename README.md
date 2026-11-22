@@ -4,13 +4,19 @@ A beginner-friendly Python command-line project that shows how two people — Al
 Bob — can exchange a confidential message using **symmetric encryption** with
 **AES-256-GCM**.
 
-Alice encrypts a message with a shared 256-bit key. Only the **nonce** and the
-**ciphertext** travel over the insecure channel. Bob, who holds the same key,
-decrypts the message and the authentication tag proves that the message really
-came from Alice and was not modified on the way.
+The project runs as **two independent programs in two terminals**:
 
-The project also runs three security tests that show what happens when
-someone uses the wrong key or tampers with the ciphertext.
+| Terminal | Script | Role |
+|:--------:|--------|------|
+| 1 | `alice.py` | Sender — creates the shared key, encrypts a message, writes `encrypted_message.json` |
+| 2 | `bob.py` | Receiver — loads the shared key, reads the package, verifies the tag, decrypts |
+
+Only the **nonce** and the **ciphertext** travel over the insecure channel. The key
+never leaves `secret.key`. The authentication tag proves the message really came from
+someone holding Alice's key and was not modified on the way.
+
+Bob also runs **three security checks** that prove the protections still hold: the
+correct key works, a wrong key is rejected, and a tampered ciphertext is rejected.
 
 ---
 
@@ -20,15 +26,18 @@ someone uses the wrong key or tampers with the ciphertext.
 2. [Project structure](#project-structure)
 3. [Requirements](#requirements)
 4. [Installation](#installation)
-5. [How to run](#how-to-run)
-6. [Menu options](#menu-options)
-7. [Sample terminal output](#sample-terminal-output)
-8. [How the program works](#how-the-program-works)
-9. [The three security tests](#the-three-security-tests)
-10. [Core concepts explained](#core-concepts-explained)
-11. [Security notes and limitations](#security-notes-and-limitations)
-12. [Troubleshooting](#troubleshooting)
-13. [References](#references)
+5. [Quick start (two terminals)](#quick-start-two-terminals)
+6. [The five stages](#the-five-stages)
+7. [What Alice writes to disk](#what-alice-writes-to-disk)
+8. [Sample terminal output](#sample-terminal-output)
+9. [How the code is organised](#how-the-code-is-organised)
+10. [The three security checks](#the-three-security-checks)
+11. [Core concepts explained](#core-concepts-explained)
+12. [Error handling and exit codes](#error-handling-and-exit-codes)
+13. [Security notes and limitations](#security-notes-and-limitations)
+14. [Troubleshooting](#troubleshooting)
+15. [Optional single-terminal demo](#optional-single-terminal-demo)
+16. [References](#references)
 
 ---
 
@@ -51,15 +60,23 @@ The program never implements AES itself — it uses the well-reviewed
 
 ```
 pbl/
-├── main.py             # the whole program (menu + crypto + tests)
-├── requirements.txt    # third-party dependency
-├── README.md           # this file
-├── sample_output.txt   # a real recorded terminal session
-└── secret.key          # created at runtime (Base64 shared key - keep it secret!)
+├── alice.py                # Terminal 1 - sender   (Stages 1-3)
+├── bob.py                  # Terminal 2 - receiver (Stages 3-5)
+├── crypto_utils.py         # the single copy of all crypto + file helpers
+├── main.py                 # optional single-terminal menu demo
+├── requirements.txt        # third-party dependency
+├── README.md               # this file
+├── demo.txt                # step-by-step demo script with talking points
+├── sample_output.txt       # a real recorded two-terminal session
+├── secret.key              # created by alice.py (Base64 shared key - keep it secret!)
+└── encrypted_message.json  # created by alice.py (the package Bob reads)
 ```
 
-`secret.key` does **not** ship with the project. It is created the first time you
-choose **option 1 (Generate Encryption Key)**.
+`crypto_utils.py` is the **single source of truth**. `alice.py`, `bob.py`, and
+`main.py` all import from it, so the AES code exists in exactly one place.
+
+`secret.key` and `encrypted_message.json` do **not** ship with the project — they are
+created the first time you run `alice.py`.
 
 ---
 
@@ -117,143 +134,264 @@ cryptography>=42.0
 
 ---
 
-## How to run
+## Quick start (two terminals)
+
+Open **two** terminal windows, both in the project folder.
+
+**Terminal 1 — Alice**
 
 ```bash
-python main.py
+python alice.py
 ```
 
-On macOS/Linux you may need `python3 main.py`.
+- Stage 1 creates `secret.key` (or reuses it if it already exists).
+- Stage 2 asks for a message and encrypts it.
+- Stage 3 writes `encrypted_message.json` and prints
+  `Message encrypted and ready for Bob.`
 
-A quick first run:
+**Terminal 2 — Bob**
 
-1. Choose **1** to generate the shared key (`secret.key`).
-2. Choose **2**, type a message, and read the nonce, ciphertext and tag.
-3. Choose **3** and press **Enter twice** to decrypt the message you just sent.
-4. Choose **4** and **5** to watch the two attacks fail.
-5. Choose **6** to exit.
+```bash
+python bob.py
+```
+
+- Stage 3 loads `secret.key` and the package.
+- Stage 4 verifies the tag and prints the plaintext.
+- Stage 5 runs the three security checks.
+
+On macOS/Linux use `python3` instead of `python`.
+
+> **Important:** both terminals must be in the same folder, because both scripts look
+> for `secret.key` and `encrypted_message.json` **next to the script file**, not in the
+> current working directory. You can therefore also run them from anywhere with
+> `python path/to/pbl/alice.py`.
+
+If you change the message, just run `alice.py` again, then `bob.py` again. If you
+regenerate the key, Bob must get the **new** `secret.key` or decryption will fail.
 
 ---
 
-## Menu options
+## The five stages
 
-| Option | Name | What it does |
-|:------:|------|--------------|
-| **1** | Generate Encryption Key | Creates a fresh 256-bit key with `os.urandom(32)` and saves it to `secret.key` as Base64. Shows a short SHA-256 **fingerprint** so Alice and Bob can confirm they hold the same key. |
-| **2** | Encrypt Message (Alice) | Reads a plaintext, creates a new 96-bit nonce, encrypts with AES-256-GCM, and prints the plaintext, algorithm, nonce, ciphertext, authentication tag and lengths. Then simulates sending `nonce + ciphertext` to Bob. |
-| **3** | Decrypt Message (Bob) | Asks for the nonce and ciphertext (Base64). Pressing **Enter** for both reuses the message from option 2. Verifies the tag and prints the recovered plaintext, or an authentication error. |
-| **4** | Test Incorrect Key | Encrypts a message, then tries to decrypt it with a **different random key**. The tag check fails with `InvalidTag`, so no plaintext leaks. |
-| **5** | Test Ciphertext Tampering | Flips **one single bit** of the ciphertext (an active attacker in transit). The tag check fails and the tampering is detected. |
-| **6** | Exit | Leaves the program. |
+Both scripts print numbered stage headers. Alice covers 1–3, Bob covers 3–5.
 
-Invalid menu entries, empty messages, missing key files and malformed Base64 are
-all handled with a clear `[FAIL] ...` message instead of a traceback.
+```
+==============================================================
+  STAGE 1: KEY GENERATION
+==============================================================
+  ...
+==============================================================
+  STAGE 2: ENCRYPTION — ALICE
+==============================================================
+  ...
+==============================================================
+  STAGE 3: MESSAGE TRANSFER
+==============================================================
+  ...
+==============================================================
+  STAGE 4: DECRYPTION — BOB
+==============================================================
+  ...
+==============================================================
+  STAGE 5: SECURITY VERIFICATION
+==============================================================
+  ...
+```
+
+| Stage | Script | What happens |
+|:-----:|--------|--------------|
+| **1. KEY GENERATION** | `alice.py` | Creates a fresh 256-bit key with `os.urandom(32)` and saves it to `secret.key` as Base64. If the file already exists, Alice asks whether to keep it (default) or replace it. |
+| **2. ENCRYPTION — ALICE** | `alice.py` | Prompts for the plaintext, creates a **new 96-bit nonce**, encrypts with AES-256-GCM, and shows the plaintext, nonce, ciphertext and tag. |
+| **3. MESSAGE TRANSFER** | `alice.py` then `bob.py` | Alice writes `encrypted_message.json`; Bob loads `secret.key` and that package and displays what he received. |
+| **4. DECRYPTION — BOB** | `bob.py` | Compares the key fingerprint, verifies the authentication tag, and only then prints the plaintext. On failure it stops with an authentication error and releases nothing. |
+| **5. SECURITY VERIFICATION** | `bob.py` | Runs the three security checks and prints `Result: N of 3 security checks passed.` |
+
+### Why the nonce is always new
+
+`encrypt_message()` calls `os.urandom(12)` on **every** call. Encrypting the same
+message twice therefore produces different output, which the demo makes visible.
+
+---
+
+## What Alice writes to disk
+
+`encrypted_message.json` is the package Bob reads:
+
+```json
+{
+  "algorithm": "AES-256-GCM",
+  "package_version": 1,
+  "created_at": "2026-11-22T09:34:54+00:00",
+  "sender": "Alice",
+  "recipient": "Bob",
+  "nonce": "869johMRYgTBa00r",
+  "ciphertext": "uIsIylJ/sIL3hTNxxjy9Ju1/nzPSWUZQlZbV4lngAmXInfuRbwyG/y1VIBQOG14=",
+  "authentication_tag": "Zcid+5FvDIb/LVUgFA4bXg==",
+  "plaintext_bytes": 31,
+  "key_fingerprint": "245d12d462970acc"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `nonce` | The fresh 96-bit nonce, Base64. Not secret. |
+| `ciphertext` | The ciphertext **with** the 16-byte tag appended, Base64. |
+| `authentication_tag` | The same tag on its own, for display. Bob checks it matches the ciphertext. |
+| `key_fingerprint` | First 16 hex chars of `SHA-256(key)`. Lets Bob confirm he holds Alice's key. A fingerprint cannot be turned back into the key. |
+| `plaintext_bytes` | Length of the original message, in bytes. |
+| `created_at`, `sender`, `recipient`, `algorithm`, `package_version` | Metadata for display and validation. |
+
+**The shared key is never in this file.** There is no `key` field, and the fingerprint
+is a one-way hash, not the key.
+
+`bob.py` validates the package before using it: it must be valid UTF-8 JSON, a JSON
+object, the right algorithm, valid Base64, a 12-byte nonce, at least a 16-byte
+ciphertext, and — if present — an `authentication_tag` that matches the tag appended
+to the ciphertext. Anything else produces a clear `[FAIL]` message and exit code 1.
 
 ---
 
 ## Sample terminal output
 
 The transcript below is from a real run (also saved in
-[`sample_output.txt`](sample_output.txt)). Base64 values are random on every run.
+[`sample_output.txt`](sample_output.txt)). Base64 values are random on every run, so
+yours will differ; the wording will be the same.
+
+### Terminal 1 — Alice
 
 ```text
 ==============================================================
-  Secure Communication Between Alice and Bob
-  Symmetric encryption with AES-256-GCM
+  Secure Communication - AES-256-GCM
+  TERMINAL 1 - ALICE (sender)
 ==============================================================
-  The message is protected by one shared 256-bit key.
+  Alice encrypts a private message and writes the package
+  file that Bob will open with bob.py in a second terminal.
   Shared key file: secret.key
-  Start with option 1 if no key exists yet.
+  Package file  : encrypted_message.json
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 1
-
-[AES-256-GCM] Generating a new 256-bit key ...
-  [OK] Key generated with os.urandom(32) (CSPRNG).
+==============================================================
+  STAGE 1: KEY GENERATION
+==============================================================
+  No secret.key yet, creating one now.
+  [OK] Generating a 256-bit key with os.urandom(32) (CSPRNG).
   Key length                  : 256 bits
-  Key fingerprint             : 4da610d34cbab1c0
+  Key fingerprint             : 245d12d462970acc
   Saved to                    : secret.key
-  Share this key with Bob only through a secure channel (in person, a password manager, or similar).
-  Never send it together with the ciphertext.
+  Give secret.key to Bob through a secure channel - in person, a
+  password manager, or similar. Never send it with the ciphertext.
 
-Choose an option [1-6]: 2
+==============================================================
+  STAGE 2: ENCRYPTION — ALICE
+==============================================================
+  Type the message Alice wants to send to Bob.
+  It is encrypted before anything is written to disk.
 
-Alice's plaintext message: Meet me at the library at 5 PM.
+  Plaintext message: Meet me at the library at 5 PM.
 
---- Alice: encryption result ---
-  Original plaintext          : Meet me at the library at 5 PM.
+  Encryption result:
   Algorithm                   : AES-256-GCM
+  Original plaintext          : Meet me at the library at 5 PM.
   Nonce (96-bit, Base64)      :
-      tF0138Mg3q/9thdf
+      869johMRYgTBa00r
   Ciphertext (Base64)         :
-      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+      uIsIylJ/sIL3hTNxxjy9Ju1/nzPSWUZQlZbV4lngAmXInfuRbwyG/y1VIBQOG14=
   Authentication tag (Base64) :
-      WpBJX77xh+Nnb7ayLjlAsg==
+      Zcid+5FvDIb/LVUgFA4bXg==
   Ciphertext length           : 31 bytes + 16-byte tag
 
-  Note: every encryption uses a fresh 96-bit nonce, so encrypting
-  the same message twice produces completely different output.
+  Every encryption uses a fresh 96-bit nonce, so the same message
+  encrypted twice never produces the same output.
 
-  Simulating transmission to Bob over an insecure channel ...
-  Sent: nonce + ciphertext. The key stays with Alice.
+==============================================================
+  STAGE 3: MESSAGE TRANSFER
+==============================================================
+  Alice writes the encrypted package for Bob:
+  Package file                : encrypted_message.json
+  Sender                      : Alice
+  Recipient                   : Bob
+  Contents                    : nonce + ciphertext + authentication tag
+  Secret key inside package   : no - it stays in secret.key
+  Key fingerprint (for Bob)   : 245d12d462970acc
 
-Choose an option [1-6]: 3
-
-Bob received a nonce and a ciphertext (both Base64).
-Press Enter twice to reuse the message Alice just encrypted.
-Nonce (Base64): 
-Ciphertext (Base64): 
-
---- Bob: decryption result ---
-  Algorithm                   : AES-256-GCM
-  [PASS] Authentication tag verified with the shared key.
-  [PASS] Decryption succeeded.
-  Decrypted plaintext         : Meet me at the library at 5 PM.
-  [PASS] Recovered plaintext matches Alice's original message.
-
-Choose an option [1-6]: 4
-
---- Security test: incorrect key ---
-  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
-  Alice's key                 : secret.key (fingerprint 4da610d34cbab1c0)
-  Bob's wrong key             : random key (fingerprint 80deb7dc94f990f7)
-  Bob tries to decrypt with a key that is NOT Alice's key ...
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] No plaintext was revealed to Bob.
-
-Choose an option [1-6]: 5
-
---- Security test: ciphertext tampering ---
-  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
-  An attacker flips one single bit of the ciphertext in transit.
-  Original ciphertext (Base64):
-      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
-  Tampered ciphertext (Base64):
-      8JIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] The tampering was detected and no plaintext was released.
-
-Choose an option [1-6]: 6
-
-Goodbye. Keep the shared key secret.
+Message encrypted and ready for Bob.
+Next: open Terminal 2 and run   python bob.py
 ```
 
-> Notice the two ciphertexts in the tampering test differ in exactly one
-> character: `8ZIs6M...` became `8JIs6M...`. One flipped bit is enough to make
-> GCM reject the whole message.
+### Terminal 2 — Bob
+
+```text
+==============================================================
+  Secure Communication - AES-256-GCM
+  TERMINAL 2 - BOB (receiver)
+==============================================================
+  Bob reads the shared key and the package that Alice wrote.
+  Run alice.py in Terminal 1 first.
+  Shared key file: secret.key
+  Package file  : encrypted_message.json
+
+==============================================================
+  STAGE 3: MESSAGE TRANSFER
+==============================================================
+  Bob looks for the shared key and the encrypted package ...
+
+  Shared key file             : secret.key
+  Key fingerprint (local)     : 245d12d462970acc
+
+  Package received:
+  Package file                : encrypted_message.json
+  Sender                      : Alice
+  Created at                  : 2026-11-22T09:34:54+00:00
+  Plaintext size              : 31 bytes
+  Nonce (96-bit, Base64)      :
+      869johMRYgTBa00r
+  Ciphertext (Base64)         :
+      uIsIylJ/sIL3hTNxxjy9Ju1/nzPSWUZQlZbV4lngAmXInfuRbwyG/y1VIBQOG14=
+  Authentication tag (Base64) :
+      Zcid+5FvDIb/LVUgFA4bXg==
+  Ciphertext length           : 31 bytes + 16-byte tag
+
+==============================================================
+  STAGE 4: DECRYPTION — BOB
+==============================================================
+  Algorithm                   : AES-256-GCM
+  Key fingerprint (package)   : 245d12d462970acc
+  Key fingerprint (local)     : 245d12d462970acc
+
+  Verifying the authentication tag and decrypting ...
+  [PASS] Authentication tag verified with the shared key.
+  [PASS] Decryption succeeded.
+  Recovered plaintext         : Meet me at the library at 5 PM.
+
+==============================================================
+  STAGE 5: SECURITY VERIFICATION
+==============================================================
+  Test 1 - correct key must decrypt the message
+  [PASS] Decryption succeeded and the plaintext matches.
+
+  Test 2 - incorrect key must be rejected
+  Alice's key                 : fingerprint 245d12d462970acc
+  Bob's wrong key             : fingerprint 5b2f0e71c9c4a8dd
+  [PASS] Rejected with InvalidTag; no plaintext was revealed.
+
+  Test 3 - modified ciphertext must be rejected
+  Original ciphertext (Base64):
+      uIsIylJ/sIL3hTNxxjy9Ju1/nzPSWUZQlZbV4lngAmXInfuRbwyG/y1VIBQOG14=
+  Tampered ciphertext (Base64):
+      uYsIylJ/sIL3hTNxxjy9Ju1/nzPSWUZQlZbV4lngAmXInfuRbwyG/y1VIBQOG14=
+  [PASS] Rejected with InvalidTag; the tampering was detected.
+
+  Result: 3 of 3 security checks passed.
+```
+
+> Notice the two ciphertexts in Test 3 differ in exactly one character:
+> `uIsI...` became `uYsI...`. One flipped bit is enough to make GCM reject the whole
+> message.
 
 ---
 
-## How the program works
+## How the code is organised
 
-The data flow for one message:
+### Data flow for one message
 
 ```
                 secret.key (256-bit, shared in advance)
@@ -261,37 +399,41 @@ The data flow for one message:
                         v                    v
   Alice: plaintext --> AES-256-GCM encrypt --> nonce + (ciphertext || tag)
                               |
-                              |  insecure channel: nonce + ciphertext only
+                              |  insecure channel: encrypted_message.json
+                              |  (nonce + ciphertext + tag, never the key)
                               v
   Bob:   nonce + (ciphertext || tag) --> AES-256-GCM decrypt --> plaintext
                               ^
                         same secret.key
 ```
 
-The key is **never** transmitted. Only the nonce and ciphertext cross the channel.
-If the tag does not verify, the library raises an exception and Bob gets **no
-plaintext at all** — not even a partial or corrupted one.
+The key is **never** transmitted. If the tag does not verify, the library raises an
+exception and Bob gets **no plaintext at all** — not even a partial or corrupted one.
 
-### Function map (`main.py`)
+### Function map (`crypto_utils.py`)
 
 | Area | Function | Purpose |
 |------|----------|---------|
 | Key handling | `generate_key()` | 32 random bytes from `os.urandom` (a CSPRNG). |
 | | `save_key()` / `load_key()` | Store/read the key as Base64 in `secret.key`; validates a 32-byte key. |
 | | `key_fingerprint()` | First 16 hex chars of `SHA-256(key)`, for comparing keys safely. |
-| | `require_key()` | Load the key or print a friendly error. |
+| | `require_key()` | Load the key or print a friendly error (used by `main.py`). |
 | Crypto | `encrypt_message()` | New nonce, then `AESGCM(key).encrypt(nonce, plaintext, None)`. |
 | | `decrypt_message()` | Validates sizes, then `AESGCM(key).decrypt(...)`; raises `InvalidTag` on failure. |
-| | `split_ciphertext()` | Splits the library's `ciphertext || tag` into body and 16-byte tag for display. |
-| | `flip_one_bit()` | Flips the lowest bit of byte 0 for the tampering test. |
-| Input / output | `to_base64()` / `from_base64()` | Base64 encode/decode with readable errors for bad input. |
-| | `show_line()` / `show_block()` / `show_package()` | Aligned, wrapped terminal output. |
-| Menu actions | `action_generate_key()` | Option 1. |
-| | `action_encrypt()` | Option 2; remembers the last message in `state`. |
-| | `action_decrypt()` | Option 3; can reuse the last message. |
-| | `action_test_wrong_key()` | Option 4. |
-| | `action_test_tampering()` | Option 5. |
-| | `main()` | Banner, menu loop, input validation, exit. |
+| | `split_ciphertext()` | Splits the library's `ciphertext || tag` into body and 16-byte tag. |
+| | `flip_one_bit()` | Flips the lowest bit of byte 0 for the tampering check. |
+| Package I/O | `write_message_package()` | Builds and writes `encrypted_message.json` (never includes the key). |
+| | `read_message_package()` | Reads and validates the package, returning raw bytes. |
+| Output | `show_line()` / `show_block()` / `show_package()` / `print_stage()` | Aligned, wrapped terminal output. |
+| Base64 | `to_base64()` / `from_base64()` | Encode/decode with readable errors for bad input. |
+
+### Script responsibilities
+
+| Script | Owns |
+|--------|------|
+| `alice.py` | Banner, Stage 1 (create/reuse key), Stage 2 (prompt + encrypt + display), Stage 3 (write package + ready message). |
+| `bob.py` | Banner, Stage 3 (load key + package + display), Stage 4 (fingerprint compare + decrypt), Stage 5 (three checks + result). |
+| `main.py` | Optional single-terminal menu demo; imports the same crypto. |
 
 ### Important parameters
 
@@ -300,42 +442,51 @@ plaintext at all** — not even a partial or corrupted one.
 | `KEY_SIZE` | 32 bytes | 256 bits → AES-256 |
 | `NONCE_SIZE` | 12 bytes | 96 bits → the nonce size recommended for GCM |
 | `TAG_SIZE` | 16 bytes | 128-bit authentication tag |
+| `PACKAGE_VERSION` | 1 | Version of the JSON package format |
 
 ---
 
-## The three security tests
+## The three security checks
 
-### Test 1 — Correct key (option 3)
+Bob runs all three in Stage 5, using the message he just received.
 
-Bob decrypts with the same key Alice used. The tag verifies, decryption succeeds,
-and the program confirms the plaintext matches the original.
+### Check 1 — Correct key must decrypt
 
-### Test 2 — Incorrect key (option 4)
-
-A completely new random 256-bit key is generated for Bob. Because GCM's tag is
-derived from the key, the nonce and the ciphertext, verification fails and
-`InvalidTag` is raised:
+Bob decrypts with the same key Alice used. The tag verifies, decryption succeeds, and
+the program confirms the plaintext matches.
 
 ```text
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] No plaintext was revealed to Bob.
+  [PASS] Decryption succeeded and the plaintext matches.
+```
+
+### Check 2 — Incorrect key must be rejected
+
+A completely new random 256-bit key is generated. Because GCM's tag is derived from
+the key, the nonce and the ciphertext, verification fails and `InvalidTag` is raised:
+
+```text
+  [PASS] Rejected with InvalidTag; no plaintext was revealed.
 ```
 
 The key fingerprints are printed so you can see the two keys really are different
 without exposing either key.
 
-### Test 3 — Ciphertext tampering (option 5)
+### Check 3 — Modified ciphertext must be rejected
 
-An attacker flips the lowest bit of the first ciphertext byte. The nonce stays the
-same, only one bit changes, yet authentication fails:
+The lowest bit of the first ciphertext byte is flipped. The nonce stays the same, only
+one bit changes, yet authentication fails:
 
 ```text
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] The tampering was detected and no plaintext was released.
+  [PASS] Rejected with InvalidTag; the tampering was detected.
 ```
 
-This is the whole point of an authenticated cipher: **any** modification — a
-changed byte, a truncated message, a substituted nonce — is detected.
+At the end Bob prints:
+
+```text
+  Result: 3 of 3 security checks passed.
+```
+
+If any check fails (which should never happen), Bob exits with code **3**.
 
 ---
 
@@ -389,8 +540,32 @@ signature — it only proves knowledge of the shared key.
 ### Base64
 
 Ciphertext, nonces and tags are raw bytes, but the program prints them as Base64
-text so they are easy to copy and paste. Base64 is **only** an encoding — it adds
-no security whatsoever. It is reversible by anyone.
+text (and stores them that way in the JSON) so they are easy to copy and paste.
+Base64 is **only** an encoding — it adds no security whatsoever. It is reversible by
+anyone.
+
+---
+
+## Error handling and exit codes
+
+Every script fails with a clear message instead of a traceback.
+
+| Situation | Script | Message (example) | Exit |
+|-----------|:------:|-------------------|:----:|
+| Success | both | normal output | **0** |
+| Empty message | Alice | `[FAIL] The message is empty, there is nothing to encrypt.` | **1** |
+| `secret.key` missing / unreadable | Alice, Bob | `[FAIL] secret.key not found in this folder.` | **1** |
+| Package missing | Bob | `[FAIL] encrypted_message.json not found in this folder.` | **1** |
+| Invalid JSON / wrong algorithm / bad Base64 / bad lengths / tag mismatch | Bob | `[FAIL] Could not read encrypted_message.json: ...` | **1** |
+| Wrong key or modified ciphertext | Bob | `[FAIL] Authentication failed.` + explanation | **2** |
+| A security check failed (should not happen) | Bob | `Result: N of 3 security checks passed.` | **3** |
+| `Ctrl+C` / closed input | both | `Interrupted. Goodbye.` | **130** |
+
+When Bob hits an authentication failure in Stage 4 he stops there (exit **2**) and
+does **not** run Stage 5.
+
+Alice also refuses to overwrite a package if the message is empty, so an earlier good
+package is never destroyed by a bad run.
 
 ---
 
@@ -408,13 +583,15 @@ This is a teaching demo, not a production messaging system.
   passphrase with scrypt/PBKDF2/Argon2.
 - **No AAD.** The program passes `None` for associated data. A real protocol would
   authenticate metadata (sender, recipient, message number, protocol version).
-- **No replay protection.** An attacker who records a valid `(nonce, ciphertext)`
-  pair cannot read or alter it, but can resend it later. Real protocols use
-  counters, timestamps or sequence numbers.
+- **No replay protection.** An attacker who records a valid package cannot read or
+  alter it, but can resend it later. Real protocols use counters, timestamps or
+  sequence numbers.
 - **No forward secrecy.** If the long-term key leaks, previously recorded traffic
   can be decrypted. Ephemeral key exchange prevents that.
 - **Ciphertext length is visible.** Encryption hides the content, not the size or
   the timing of messages.
+- **A single package file.** `encrypted_message.json` holds only the most recent
+  message; a real system would have a message format with IDs and ordering.
 - **Terminal output is a teaching aid,** not a wire format. In a real system the
   nonce and ciphertext would be sent as bytes with a defined message layout.
 
@@ -425,16 +602,39 @@ This is a teaching demo, not a production messaging system.
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | `ModuleNotFoundError: No module named 'cryptography'` | Dependency not installed, or the virtual environment is not activated. | `pip install -r requirements.txt` |
-| `[FAIL] No key file found. Use option 1 to create secret.key.` | `secret.key` is missing. | Run option **1**. |
-| `[FAIL] Could not read the key file: key file must contain 32 bytes...` | The file was edited or truncated. | Run option **1** and overwrite it. |
-| `[FAIL] Authentication failed: wrong key, or the nonce/ciphertext was modified.` | Wrong key, or the message was altered in transit. | Use the same `secret.key` on both sides; re-copy the Base64 exactly. |
-| `[FAIL] Invalid input: nonce is not valid Base64` | Pasted text is truncated or contains extra characters. | Copy the whole value again (whitespace is ignored, other characters are not). |
+| Alice: `[FAIL] secret.key exists but cannot be used: ...` | The key file was edited or truncated. | Delete `secret.key` and run `alice.py` again. |
+| Bob: `[FAIL] secret.key not found in this folder.` | Bob has no key, or the terminals are in different folders. | Run `alice.py` first, or copy `secret.key` next to `bob.py`. |
+| Bob: `[FAIL] encrypted_message.json not found in this folder.` | Alice has not run yet. | Run `alice.py` in Terminal 1. |
+| Bob: `[FAIL] Authentication failed.` (exit 2) | Wrong key, or the package was altered. | Make sure Bob has the **same** `secret.key` Alice used; re-run `alice.py` if needed. |
+| Bob: `[FAIL] Could not read encrypted_message.json: the authentication_tag field does not match the ciphertext` | The JSON was hand-edited. | Re-run `alice.py`. |
 | `SyntaxError` on Python 3.9 or older | The code uses `bytes | None`. | Use Python 3.10+ (or newer). |
-| Empty `secret.key` / permission denied | A failed write, or file permissions. | Delete the file, then run option **1** again. |
 | Different output every run | Expected: nonces are random. | Nothing to fix — this is correct behaviour. |
+| Replacing the key breaks Bob | Bob still has the old key. | Give Bob the new `secret.key`. |
 
-To regenerate the recording in `sample_output.txt`, delete `secret.key` and
-`sample_output.txt` first, then run the same option sequence shown above.
+To regenerate `sample_output.txt`, see [`demo.txt`](demo.txt) for the exact steps.
+
+---
+
+## Optional single-terminal demo
+
+`main.py` is a menu-driven version that runs Alice and Bob in **one** window. It uses
+the same `crypto_utils.py` code, so nothing about the cryptography changes.
+
+```bash
+python main.py
+```
+
+| Option | Name | What it does |
+|:------:|------|--------------|
+| **1** | Generate Encryption Key | Creates `secret.key`. |
+| **2** | Encrypt Message (Alice) | Encrypts a message and remembers it. |
+| **3** | Decrypt Message (Bob) | Press **Enter** twice to reuse the last message. |
+| **4** | Test Incorrect Key | Tries a different random key; the tag check fails. |
+| **5** | Test Ciphertext Tampering | Flips one bit; the tag check fails. |
+| **6** | Exit | Leaves the program. |
+
+Use `alice.py` and `bob.py` when you want to demonstrate the two-party workflow in
+two real terminals. Use `main.py` for a quick single-window walkthrough.
 
 ---
 
