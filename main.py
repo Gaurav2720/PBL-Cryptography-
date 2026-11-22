@@ -1,199 +1,40 @@
 #!/usr/bin/env python3
 """
-Secure Communication Between Alice and Bob Using AES-256-GCM
-============================================================
+main.py - optional single-terminal demo
+=======================================
 
-A small command-line demonstration of symmetric encryption:
+This menu-driven version runs Alice and Bob in one window. It uses exactly
+the same AES-256-GCM code as alice.py and bob.py, imported from
+crypto_utils.py, so there is only one implementation of the cryptography
+in the project.
 
-    Alice --(plaintext)--> [AES-256-GCM + shared key] --> nonce + ciphertext
-        ... insecure channel ...
-    Bob   --(nonce + ciphertext)--> [AES-256-GCM + shared key] --> plaintext
-
-The secret key is never sent with the message. Alice and Bob must obtain the
-same 256-bit key through some secure channel beforehand. In this demo the key
-is stored in the local file ``secret.key`` so both "sides" can use it.
-
-Run with:  python main.py
+For the two-terminal workflow use alice.py (Terminal 1) and bob.py
+(Terminal 2) instead.
 """
 
-import base64
-import binascii
-import hashlib
-import os
 import sys
-import textwrap
-from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-ALGORITHM = "AES-256-GCM"
-KEY_SIZE = 32      # 32 bytes = 256 bits  -> AES-256
-NONCE_SIZE = 12    # 12 bytes =  96 bits  -> recommended GCM nonce size
-TAG_SIZE = 16      # 16 bytes = 128 bits  -> GCM authentication tag
-KEY_FILE = Path(__file__).with_name("secret.key")
-
-# Width used to line up the labels in the terminal output.
-LABEL_WIDTH = 28
-
-# Used by the two security tests when no message has been encrypted yet.
-DEMO_PLAINTEXT = "Demo message for the security test."
-
-
-# ---------------------------------------------------------------------------
-# Key handling
-# ---------------------------------------------------------------------------
-def generate_key() -> bytes:
-    """Return a fresh 256-bit key from the operating system's secure RNG.
-
-    ``os.urandom`` is a cryptographically secure random generator, which is
-    exactly what key material must come from. Never use ``random`` here.
-    """
-    return os.urandom(KEY_SIZE)
-
-
-def save_key(key: bytes, path: Path = KEY_FILE) -> None:
-    """Write the key to a local file as Base64 text."""
-    path.write_text(base64.b64encode(key).decode("ascii"), encoding="ascii")
-
-    # Best effort: restrict the file to the current user. On Windows the
-    # read-only/owner bits mean little, so failures are ignored.
-    try:
-        os.chmod(path, 0o600)
-    except OSError:
-        pass
-
-
-def load_key(path: Path = KEY_FILE) -> bytes:
-    """Read the shared key file.
-
-    Raises FileNotFoundError if the file is missing and ValueError if its
-    contents are not a valid 32-byte Base64 key.
-    """
-    text = path.read_text(encoding="ascii").strip()
-
-    try:
-        key = base64.b64decode(text, validate=True)
-    except binascii.Error as exc:
-        raise ValueError("key file is not valid Base64") from exc
-
-    if len(key) != KEY_SIZE:
-        raise ValueError(
-            f"key file must contain {KEY_SIZE} bytes, found {len(key)}"
-        )
-    return key
-
-
-def key_fingerprint(key: bytes) -> str:
-    """Short SHA-256 fingerprint of a key.
-
-    Two people who think they share the same key can compare this value out
-    loud. A fingerprint cannot be turned back into the key itself.
-    """
-    return hashlib.sha256(key).hexdigest()[:16]
-
-
-def require_key() -> bytes | None:
-    """Load the key or print a friendly error and return None."""
-    try:
-        return load_key()
-    except FileNotFoundError:
-        print(f"[FAIL] No key file found. Use option 1 to create {KEY_FILE.name}.")
-    except (OSError, ValueError) as exc:
-        print(f"[FAIL] Could not read the key file: {exc}")
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Encryption / decryption
-# ---------------------------------------------------------------------------
-def encrypt_message(key: bytes, plaintext: str) -> dict:
-    """Encrypt ``plaintext`` with AES-256-GCM.
-
-    Returns a dict with the raw ``nonce`` and ``ciphertext``. The library
-    returns ciphertext with the 16-byte authentication tag appended to it;
-    that combined blob is what gets stored and transmitted.
-
-    A brand new random nonce is created for every single call. Reusing a
-    nonce with the same key would break GCM's security completely.
-    """
-    nonce = os.urandom(NONCE_SIZE)
-    aesgcm = AESGCM(key)
-
-    # ``None`` is the optional associated data (AAD), which we do not use.
-    ciphertext = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
-
-    return {"nonce": nonce, "ciphertext": ciphertext}
-
-
-def decrypt_message(key: bytes, nonce: bytes, ciphertext: bytes) -> str:
-    """Decrypt and authenticate a message.
-
-    Raises ``InvalidTag`` when the key is wrong or the nonce/ciphertext/tag
-    was modified, and ``ValueError`` for malformed input. Plaintext is only
-    returned after the authentication tag has been verified.
-    """
-    if len(nonce) != NONCE_SIZE:
-        raise ValueError(f"nonce must be {NONCE_SIZE} bytes")
-    if len(ciphertext) < TAG_SIZE:
-        raise ValueError("ciphertext is too short to contain a tag")
-
-    aesgcm = AESGCM(key)
-    plaintext_bytes = aesgcm.decrypt(nonce, ciphertext, None)
-    return plaintext_bytes.decode("utf-8")
-
-
-def split_ciphertext(ciphertext: bytes) -> tuple[bytes, bytes]:
-    """Split ``ciphertext || tag`` into the ciphertext body and the tag."""
-    return ciphertext[:-TAG_SIZE], ciphertext[-TAG_SIZE:]
-
-
-def flip_one_bit(data: bytes) -> bytes:
-    """Return a copy of ``data`` with the lowest bit of the first byte flipped."""
-    tampered = bytearray(data)
-    tampered[0] ^= 0x01
-    return bytes(tampered)
-
-
-# ---------------------------------------------------------------------------
-# Small output helpers
-# ---------------------------------------------------------------------------
-def to_base64(data: bytes) -> str:
-    return base64.b64encode(data).decode("ascii")
-
-
-def from_base64(text: str, label: str) -> bytes:
-    """Decode Base64 input, raising a readable error for bad input."""
-    cleaned = "".join(text.split())
-    if not cleaned:
-        raise ValueError(f"{label} is empty")
-    try:
-        return base64.b64decode(cleaned, validate=True)
-    except binascii.Error as exc:
-        raise ValueError(f"{label} is not valid Base64") from exc
-
-
-def show_line(label: str, value: str) -> None:
-    print(f"  {label:<{LABEL_WIDTH}}: {value}")
-
-
-def show_block(label: str, value: str) -> None:
-    """Print a long Base64 string on wrapped, indented lines."""
-    print(f"  {label:<{LABEL_WIDTH}}:")
-    for line in textwrap.wrap(value, width=64) or [""]:
-        print(f"      {line}")
-
-
-def show_package(nonce: bytes, ciphertext: bytes) -> None:
-    """Display a transmitted package the way it would look on the wire."""
-    body, tag = split_ciphertext(ciphertext)
-    show_block("Nonce (96-bit, Base64)", to_base64(nonce))
-    show_block("Ciphertext (Base64)", to_base64(ciphertext))
-    show_block("Authentication tag (Base64)", to_base64(tag))
-    show_line("Ciphertext length", f"{len(body)} bytes + {len(tag)}-byte tag")
+from crypto_utils import (
+    ALGORITHM,
+    DEMO_PLAINTEXT,
+    KEY_FILE,
+    KEY_SIZE,
+    decrypt_message,
+    encrypt_message,
+    flip_one_bit,
+    from_base64,
+    generate_key,
+    key_fingerprint,
+    load_key,
+    require_key,
+    save_key,
+    show_block,
+    show_line,
+    show_package,
+    to_base64,
+)
 
 
 # ---------------------------------------------------------------------------
