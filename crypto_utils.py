@@ -26,9 +26,9 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-# ---------------------------------------------------------------------------
+
 # Constants
-# ---------------------------------------------------------------------------
+
 ALGORITHM = "AES-256-GCM"
 KEY_SIZE = 32      # 32 bytes = 256 bits  -> AES-256
 NONCE_SIZE = 12    # 12 bytes =  96 bits  -> recommended GCM nonce size
@@ -44,9 +44,9 @@ LABEL_WIDTH = 28
 DEMO_PLAINTEXT = "Demo message for the security test."
 
 
-# ---------------------------------------------------------------------------
+
 # Key handling
-# ---------------------------------------------------------------------------
+
 def generate_key() -> bytes:
     """Return a fresh 256-bit key from the operating system's secure RNG.
 
@@ -108,9 +108,9 @@ def require_key() -> bytes | None:
     return None
 
 
-# ---------------------------------------------------------------------------
+
 # Encryption / decryption
-# ---------------------------------------------------------------------------
+
 def encrypt_message(key: bytes, plaintext: str) -> dict:
     """Encrypt ``plaintext`` with AES-256-GCM.
 
@@ -159,9 +159,9 @@ def flip_one_bit(data: bytes) -> bytes:
     return bytes(tampered)
 
 
-# ---------------------------------------------------------------------------
+
 # Base64 and terminal output helpers
-# ---------------------------------------------------------------------------
+
 def to_base64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
@@ -204,9 +204,9 @@ def print_stage(number: int, title: str) -> None:
     print("=" * 62)
 
 
-# ---------------------------------------------------------------------------
+
 # The file Alice sends to Bob
-# ---------------------------------------------------------------------------
+
 def write_message_package(
     key: bytes,
     nonce: bytes,

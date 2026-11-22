@@ -40,9 +40,7 @@ EXIT_SETUP = 1
 EXIT_INTERRUPTED = 130
 
 
-# ---------------------------------------------------------------------------
 # Banner
-# ---------------------------------------------------------------------------
 def print_banner() -> None:
     print("=" * 62)
     print("  Secure Communication - AES-256-GCM")
@@ -54,9 +52,9 @@ def print_banner() -> None:
     print(f"  Package file  : {MESSAGE_FILE.name}")
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 1 - key generation
-# ---------------------------------------------------------------------------
+
 def prepare_key() -> bytes:
     """Create the shared key, or reuse the one already on disk.
 
@@ -105,9 +103,8 @@ def prepare_key() -> bytes:
     return key
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 2 - encryption (Alice)
-# ---------------------------------------------------------------------------
 def encrypt_for_bob(key: bytes) -> tuple[str, bytes, bytes]:
     """Ask Alice for a message and encrypt it with a fresh nonce."""
     print_stage(2, "ENCRYPTION \u2014 ALICE")
@@ -135,9 +132,8 @@ def encrypt_for_bob(key: bytes) -> tuple[str, bytes, bytes]:
     return plaintext, nonce, ciphertext
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 3 - message transfer (write the package)
-# ---------------------------------------------------------------------------
 def send_to_bob(
     key: bytes, plaintext: str, nonce: bytes, ciphertext: bytes
 ) -> None:
@@ -163,9 +159,9 @@ def send_to_bob(
     print("Next: open Terminal 2 and run   python bob.py")
 
 
-# ---------------------------------------------------------------------------
+
 # Entry point
-# ---------------------------------------------------------------------------
+
 def main() -> int:
     print_banner()
     key = prepare_key()

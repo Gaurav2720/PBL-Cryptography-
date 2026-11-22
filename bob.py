@@ -43,9 +43,9 @@ EXIT_TESTS = 3
 EXIT_INTERRUPTED = 130
 
 
-# ---------------------------------------------------------------------------
+
 # Banner
-# ---------------------------------------------------------------------------
+
 def print_banner() -> None:
     print("=" * 62)
     print("  Secure Communication - AES-256-GCM")
@@ -57,9 +57,9 @@ def print_banner() -> None:
     print(f"  Package file  : {MESSAGE_FILE.name}")
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 3 - message transfer (load key and package)
-# ---------------------------------------------------------------------------
+
 def receive_message() -> tuple[bytes, dict]:
     """Load the shared key and the encrypted package written by Alice."""
     print_stage(3, "MESSAGE TRANSFER")
@@ -99,9 +99,9 @@ def receive_message() -> tuple[bytes, dict]:
     return key, message
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 4 - decryption (Bob)
-# ---------------------------------------------------------------------------
+
 def decrypt_as_bob(key: bytes, message: dict) -> str:
     """Verify the authentication tag, then decrypt the message."""
     print_stage(4, "DECRYPTION \u2014 BOB")
@@ -140,9 +140,9 @@ def decrypt_as_bob(key: bytes, message: dict) -> str:
     return plaintext
 
 
-# ---------------------------------------------------------------------------
+
 # Stage 5 - security verification
-# ---------------------------------------------------------------------------
+
 def run_security_tests(key: bytes, message: dict, plaintext: str) -> int:
     """Run the three classic checks and report how many passed."""
     print_stage(5, "SECURITY VERIFICATION")
@@ -205,9 +205,9 @@ def run_security_tests(key: bytes, message: dict, plaintext: str) -> int:
     return passed
 
 
-# ---------------------------------------------------------------------------
+
 # Entry point
-# ---------------------------------------------------------------------------
+
 def main() -> int:
     print_banner()
     key, message = receive_message()

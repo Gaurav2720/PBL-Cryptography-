@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""
-main.py - optional single-terminal demo
-=======================================
 
-This menu-driven version runs Alice and Bob in one window. It uses exactly
-the same AES-256-GCM code as alice.py and bob.py, imported from
-crypto_utils.py, so there is only one implementation of the cryptography
-in the project.
-
-For the two-terminal workflow use alice.py (Terminal 1) and bob.py
-(Terminal 2) instead.
-"""
 
 import sys
 
@@ -37,9 +26,7 @@ from crypto_utils import (
 )
 
 
-# ---------------------------------------------------------------------------
 # Menu actions - key generation
-# ---------------------------------------------------------------------------
 def action_generate_key() -> None:
     """Menu 1: create the shared 256-bit key."""
     print(f"\n[{ALGORITHM}] Generating a new 256-bit key ...")
@@ -65,10 +52,7 @@ def action_generate_key() -> None:
         "  Never send it together with the ciphertext."
     )
 
-
-# ---------------------------------------------------------------------------
 # Menu actions - encryption (Alice)
-# ---------------------------------------------------------------------------
 def action_encrypt(state: dict) -> None:
     """Menu 2: Alice encrypts a message with the shared key."""
     key = require_key()
@@ -104,9 +88,9 @@ def action_encrypt(state: dict) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
+
 # Menu actions - decryption (Bob)
-# ---------------------------------------------------------------------------
+
 def action_decrypt(state: dict) -> None:
     """Menu 3: Bob decrypts what he received, using the same key."""
     key = require_key()
@@ -174,9 +158,8 @@ def get_test_message(state: dict, key: bytes) -> tuple[str, bytes, bytes]:
     return DEMO_PLAINTEXT, package["nonce"], package["ciphertext"]
 
 
-# ---------------------------------------------------------------------------
+
 # Menu actions - security test 2: incorrect key
-# ---------------------------------------------------------------------------
 def action_test_wrong_key(state: dict) -> None:
     """Menu 4: a different key must be rejected by the tag check."""
     key = require_key()
@@ -208,9 +191,9 @@ def action_test_wrong_key(state: dict) -> None:
         print("  This must never happen with AES-256-GCM.")
 
 
-# ---------------------------------------------------------------------------
+
 # Menu actions - security test 3: ciphertext tampering
-# ---------------------------------------------------------------------------
+
 def action_test_tampering(state: dict) -> None:
     """Menu 5: a modified ciphertext must be rejected by the tag check."""
     key = require_key()
@@ -238,9 +221,9 @@ def action_test_tampering(state: dict) -> None:
         print("  This must never happen with AES-256-GCM.")
 
 
-# ---------------------------------------------------------------------------
+
 # Terminal menu
-# ---------------------------------------------------------------------------
+
 def print_banner() -> None:
     print("=" * 62)
     print("  Secure Communication Between Alice and Bob")
