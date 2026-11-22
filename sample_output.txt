@@ -1,126 +1,130 @@
 ==============================================================
-  Secure Communication Between Alice and Bob
-  Symmetric encryption with AES-256-GCM
+  SAMPLE RUN - TWO TERMINAL WINDOWS
+  alice.py in Terminal 1, then bob.py in Terminal 2
+  Captured 2026-11-22 (exit codes: alice=0, bob=0)
 ==============================================================
-  The message is protected by one shared 256-bit key.
+
+--------------------------------------------------------------
+  TERMINAL 1 - ALICE  (python alice.py)
+--------------------------------------------------------------
+==============================================================
+  Secure Communication - AES-256-GCM
+  TERMINAL 1 - ALICE (sender)
+==============================================================
+  Alice encrypts a private message and writes the package
+  file that Bob will open with bob.py in a second terminal.
   Shared key file: secret.key
-  Start with option 1 if no key exists yet.
+  Package file  : encrypted_message.json
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 1
-
-[AES-256-GCM] Generating a new 256-bit key ...
-  [OK] Key generated with os.urandom(32) (CSPRNG).
+==============================================================
+  STAGE 1: KEY GENERATION
+==============================================================
+  No secret.key yet, creating one now.
+  [OK] Generating a 256-bit key with os.urandom(32) (CSPRNG).
   Key length                  : 256 bits
-  Key fingerprint             : 4da610d34cbab1c0
+  Key fingerprint             : 68ddf8876f4acec7
   Saved to                    : secret.key
-  Share this key with Bob only through a secure channel (in person, a password manager, or similar).
-  Never send it together with the ciphertext.
+  Give secret.key to Bob through a secure channel - in person, a
+  password manager, or similar. Never send it with the ciphertext.
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 2
+==============================================================
+  STAGE 2: ENCRYPTION — ALICE
+==============================================================
+  Type the message Alice wants to send to Bob.
+  It is encrypted before anything is written to disk.
 
-Alice's plaintext message: Meet me at the library at 5 PM.
+  Plaintext message: Meet me at the library at 5 PM.
 
---- Alice: encryption result ---
-  Original plaintext          : Meet me at the library at 5 PM.
+  Encryption result:
   Algorithm                   : AES-256-GCM
+  Original plaintext          : Meet me at the library at 5 PM.
   Nonce (96-bit, Base64)      :
-      tF0138Mg3q/9thdf
+      cTjFCaWl8N8t+Bmd
   Ciphertext (Base64)         :
-      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+      QN7MghSXQPySRkkaErnG1H7RX7ADO/FCZSS1hlEOX2ViVNuBQjUNBSbB1X02J1s=
   Authentication tag (Base64) :
-      WpBJX77xh+Nnb7ayLjlAsg==
+      ZWJU24FCNQ0FJsHVfTYnWw==
   Ciphertext length           : 31 bytes + 16-byte tag
 
-  Note: every encryption uses a fresh 96-bit nonce, so encrypting
-  the same message twice produces completely different output.
+  Every encryption uses a fresh 96-bit nonce, so the same message
+  encrypted twice never produces the same output.
 
-  Simulating transmission to Bob over an insecure channel ...
-  Sent: nonce + ciphertext. The key stays with Alice.
+==============================================================
+  STAGE 3: MESSAGE TRANSFER
+==============================================================
+  Alice writes the encrypted package for Bob:
+  Package file                : encrypted_message.json
+  Sender                      : Alice
+  Recipient                   : Bob
+  Contents                    : nonce + ciphertext + authentication tag
+  Secret key inside package   : no - it stays in secret.key
+  Key fingerprint (for Bob)   : 68ddf8876f4acec7
+
+Message encrypted and ready for Bob.
+Next: open Terminal 2 and run   python bob.py
+
 
 --------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
+  TERMINAL 2 - BOB  (python bob.py)
 --------------------------------------------------------------
-Choose an option [1-6]: 3
+==============================================================
+  Secure Communication - AES-256-GCM
+  TERMINAL 2 - BOB (receiver)
+==============================================================
+  Bob reads the shared key and the package that Alice wrote.
+  Run alice.py in Terminal 1 first.
+  Shared key file: secret.key
+  Package file  : encrypted_message.json
 
-Bob received a nonce and a ciphertext (both Base64).
-Press Enter twice to reuse the message Alice just encrypted.
-Nonce (Base64): 
-Ciphertext (Base64): 
+==============================================================
+  STAGE 3: MESSAGE TRANSFER
+==============================================================
+  Bob looks for the shared key and the encrypted package ...
 
---- Bob: decryption result ---
+  Shared key file             : secret.key
+  Key fingerprint (local)     : 68ddf8876f4acec7
+
+  Package received:
+  Package file                : encrypted_message.json
+  Sender                      : Alice
+  Created at                  : 2026-11-22T09:36:09+00:00
+  Plaintext size              : 31 bytes
+  Nonce (96-bit, Base64)      :
+      cTjFCaWl8N8t+Bmd
+  Ciphertext (Base64)         :
+      QN7MghSXQPySRkkaErnG1H7RX7ADO/FCZSS1hlEOX2ViVNuBQjUNBSbB1X02J1s=
+  Authentication tag (Base64) :
+      ZWJU24FCNQ0FJsHVfTYnWw==
+  Ciphertext length           : 31 bytes + 16-byte tag
+
+==============================================================
+  STAGE 4: DECRYPTION — BOB
+==============================================================
   Algorithm                   : AES-256-GCM
+  Key fingerprint (package)   : 68ddf8876f4acec7
+  Key fingerprint (local)     : 68ddf8876f4acec7
+
+  Verifying the authentication tag and decrypting ...
   [PASS] Authentication tag verified with the shared key.
   [PASS] Decryption succeeded.
-  Decrypted plaintext         : Meet me at the library at 5 PM.
-  [PASS] Recovered plaintext matches Alice's original message.
+  Recovered plaintext         : Meet me at the library at 5 PM.
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 4
+==============================================================
+  STAGE 5: SECURITY VERIFICATION
+==============================================================
+  Test 1 - correct key must decrypt the message
+  [PASS] Decryption succeeded and the plaintext matches.
 
---- Security test: incorrect key ---
-  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
-  Alice's key                 : secret.key (fingerprint 4da610d34cbab1c0)
-  Bob's wrong key             : random key (fingerprint 80deb7dc94f990f7)
-  Bob tries to decrypt with a key that is NOT Alice's key ...
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] No plaintext was revealed to Bob.
+  Test 2 - incorrect key must be rejected
+  Alice's key                 : fingerprint 68ddf8876f4acec7
+  Bob's wrong key             : fingerprint 5f8a35ddf6dac4fe
+  [PASS] Rejected with InvalidTag; no plaintext was revealed.
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 5
-
---- Security test: ciphertext tampering ---
-  Using the last message Alice encrypted: "Meet me at the library at 5 PM."
-  An attacker flips one single bit of the ciphertext in transit.
+  Test 3 - modified ciphertext must be rejected
   Original ciphertext (Base64):
-      8ZIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
+      QN7MghSXQPySRkkaErnG1H7RX7ADO/FCZSS1hlEOX2ViVNuBQjUNBSbB1X02J1s=
   Tampered ciphertext (Base64):
-      8JIs6Ml1xZmpUsZ0T0gtJBJhyNmqxqOSsAQ6QO7yC1qQSV++8YfjZ2+2si45QLI=
-  [PASS] Decryption failed with an authentication error (InvalidTag).
-  [PASS] The tampering was detected and no plaintext was released.
+      Qd7MghSXQPySRkkaErnG1H7RX7ADO/FCZSS1hlEOX2ViVNuBQjUNBSbB1X02J1s=
+  [PASS] Rejected with InvalidTag; the tampering was detected.
 
---------------------------------------------------------------
-  1. Generate Encryption Key
-  2. Encrypt Message (Alice)
-  3. Decrypt Message (Bob)
-  4. Test Incorrect Key
-  5. Test Ciphertext Tampering
-  6. Exit
---------------------------------------------------------------
-Choose an option [1-6]: 6
-
-Goodbye. Keep the shared key secret.
+  Result: 3 of 3 security checks passed.
